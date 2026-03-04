@@ -15,6 +15,7 @@ TRACK_COLOR = "#888888"
 TRACK_WIDTH = 10
 TRAIN_COLOR = "#FFFFFF"
 BG_COLOR = "#2d5a27"
+PANEL_COLOR = "#1a3a16"
 
 
 class App:
@@ -23,11 +24,17 @@ class App:
         self.root.title("Track Simulator")
         self.root.resizable(False, False)
 
+        main_frame = tk.Frame(self.root, bg=PANEL_COLOR)
+        main_frame.pack()
+
         self.canvas = tk.Canvas(
-            self.root, width=CANVAS_W, height=CANVAS_H,
+            main_frame, width=CANVAS_W, height=CANVAS_H,
             bg=BG_COLOR, highlightthickness=0
         )
-        self.canvas.pack()
+        self.canvas.pack(side=tk.LEFT)
+
+        self._sw1_var = tk.IntVar(value=0)
+        self._create_switch_panel(main_frame)
 
         self.track = Track.build_rounded_rect_with_siding()
         self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
@@ -40,12 +47,43 @@ class App:
             font=("Courier", 12), text=self._route_text()
         )
 
-        # Key binding: 's' toggles the siding route
-        self.root.bind("<s>", lambda _e: self._toggle_route())
-        self.root.bind("<S>", lambda _e: self._toggle_route())
-
         self._last_time = time.perf_counter()
         self._loop()
+
+    # ------------------------------------------------------------------
+    # Switch panel
+    # ------------------------------------------------------------------
+
+    def _create_switch_panel(self, parent: tk.Frame) -> None:
+        panel = tk.Frame(parent, bg=PANEL_COLOR, width=120, height=CANVAS_H)
+        panel.pack(side=tk.LEFT, fill=tk.Y)
+        panel.pack_propagate(False)
+
+        inner = tk.Frame(panel, bg=PANEL_COLOR)
+        inner.place(relx=0.5, rely=0.5, anchor="center")
+
+        tk.Label(inner, text="SW1/SW2", bg=PANEL_COLOR, fg="white",
+                 font=("Helvetica", 9, "bold")).pack(pady=(0, 4))
+        tk.Label(inner, text="MAIN", bg=PANEL_COLOR, fg="#aaaaaa",
+                 font=("Helvetica", 7)).pack()
+
+        tk.Scale(
+            inner, variable=self._sw1_var, from_=0, to=1,
+            orient=tk.VERTICAL, showvalue=False,
+            bg=PANEL_COLOR, fg="white", troughcolor="#333333",
+            activebackground="#FFA500", highlightthickness=0,
+            resolution=1, length=100,
+            command=lambda _v: self._on_switch(),
+        ).pack()
+
+        tk.Label(inner, text="SIDING", bg=PANEL_COLOR, fg="#aaaaaa",
+                 font=("Helvetica", 7)).pack()
+
+    def _on_switch(self) -> None:
+        """Called when the SW1 slider moves."""
+        self.train.route = "siding" if self._sw1_var.get() == 1 else "main"
+        self._update_switch_markers()
+        self.canvas.itemconfig(self._route_label, text=self._route_text())
 
     # ------------------------------------------------------------------
     # Track drawing
@@ -78,7 +116,9 @@ class App:
     def _draw_switch_markers(self) -> None:
         r = 6
         self._switch_markers = []
+        self._switch_labels = []
         marked: set[tuple[int, int]] = set()
+        sw_names = iter(["SW1", "SW2"])
 
         def _add_marker(x: float, y: float) -> None:
             pnt = (round(x), round(y))
@@ -90,6 +130,11 @@ class App:
                 fill="#00BB00", outline="#FFA500", width=2
             )
             self._switch_markers.append(oid)
+            lid = self.canvas.create_text(
+                x, y - r - 6, text=next(sw_names, ""),
+                fill="white", font=("Helvetica", 8, "bold")
+            )
+            self._switch_labels.append(lid)
 
         # Diverging switches: segment ends where multiple next-segments branch
         for seg in self.track.segments:
@@ -156,17 +201,11 @@ class App:
         self.root.after(FRAME_MS, self._loop)
 
     # ------------------------------------------------------------------
-    # Route toggle
+    # Route display
     # ------------------------------------------------------------------
 
-    def _toggle_route(self) -> None:
-        self.train.toggle_route()
-        self.canvas.itemconfig(self._route_label, text=self._route_text())
-        self._update_switch_markers()
-
     def _route_text(self) -> str:
-        route = self.train.route.upper()
-        return f"Route: {route}  (press S to toggle)"
+        return f"Route: {self.train.route.upper()}"
 
 
 if __name__ == "__main__":
