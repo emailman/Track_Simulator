@@ -41,6 +41,15 @@ class Segment:
         x2, y2 = self.position_at(min(1.0, t + eps))
         return math.atan2(y2 - y1, x2 - x1)
 
+    def t_near(self, x: float, y: float) -> float:
+        """Return the t value of the polyline waypoint closest to (x, y)."""
+        best_i, best_d = 0, float("inf")
+        for i, (px, py) in enumerate(self.points):
+            d = (px - x) ** 2 + (py - y) ** 2
+            if d < best_d:
+                best_d, best_i = d, i
+        return self._cum_lengths[best_i] / self.length
+
 
 def _arc_points(cx: float, cy: float, rx: float, ry: float,
                 start_deg: float, end_deg: float, steps: int = 60) -> list[tuple[float, float]]:
@@ -149,4 +158,15 @@ class Track:
         seg1.next = [seg0]
         seg2.next = [seg0]
 
-        return cls([seg0, seg1, seg2])
+        t_bl4_bl5 = seg0.t_near(580, 120)   # boundary between BL4 and BL5
+        t_bl5_bl1 = seg0.t_near(220, 120)   # boundary between BL5 and BL1
+
+        track = cls([seg0, seg1, seg2])
+        track.block_ranges = {
+            "BL1": (seg0, t_bl5_bl1, 1.0),
+            "BL2": (seg1, 0.0,       1.0),
+            "BL3": (seg2, 0.0,       1.0),
+            "BL4": (seg0, 0.0,       t_bl4_bl5),
+            "BL5": (seg0, t_bl4_bl5, t_bl5_bl1),
+        }
+        return track

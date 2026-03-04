@@ -47,6 +47,10 @@ class App:
             10, 10, anchor="nw", fill="white",
             font=("Courier", 12), text=self._route_text()
         )
+        self._block_label = self.canvas.create_text(
+            10, 30, anchor="nw", fill="yellow",
+            font=("Courier", 12), text="Block: ?"
+        )
 
         self._last_time = time.perf_counter()
         self._loop()
@@ -232,6 +236,9 @@ class App:
 
         self.train.update(dt)
         self._update_train_sprite()
+
+        block = self.train.current_block(self.track.block_ranges)
+        self.canvas.itemconfig(self._block_label, text=f"Block: {block}")
 
         # noinspection PyTypeChecker
         self.root.after(FRAME_MS, self._loop)

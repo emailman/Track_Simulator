@@ -62,3 +62,9 @@ class Train:
     def toggle_route(self) -> None:
         """Switch between 'main' and 'siding' route at the next junction."""
         self.route = "siding" if self.route == "main" else "main"
+
+    def current_block(self, block_ranges: dict) -> str:
+        for name, (seg, t0, t1) in block_ranges.items():
+            if seg is self.segment and t0 <= self.t <= t1:
+                return name
+        return "?"
