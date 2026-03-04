@@ -66,73 +66,86 @@ class Track:
         self.segments = segments
 
     @classmethod
-    def build_oval_with_siding(cls) -> "Track":
+    def build_rounded_rect_with_siding(cls) -> "Track":
         """
-        Build a main oval loop with one passing siding below it.
+        Build a main rounded-rectangle loop with one passing siding below it.
 
-        Layout (counterclockwise, canvas 800x500):
-          Main oval: centre (400, 220), rx=280, ry=150
-          Switch 1 (sw1): bottom-right of oval, angle 65°
-          Switch 2 (sw2): bottom-left  of oval, angle 115°
+        Layout (clockwise on screen, canvas 800×500):
+          Main loop: left-end centre (140, 200), right-end centre (660, 200),
+                     end-radius = 80.
+          B5  – top straight:    y=120, x ∈ [140, 660]
+          B2  – bottom straight: y=280, x ∈ [140, 660]
+          S1 / sw1 = (220, 280)  near left end  – train diverges to siding here
+          S2 / sw2 = (580, 280)  near right end – siding rejoins here
+          B3  – siding U-shape below the bottom straight
 
-          seg0 – main arc from sw2 (115°) counterclockwise around the
-                  top and back to sw1 (65°+360°).  Ends at sw1.
-                  next = [seg1 (bypass), seg2 (siding)]
-
-          seg1 – bypass arc from sw1 (65°) to sw2 (115°) along the
-                  bottom of the oval.  next = [seg0]
-
-          seg2 – siding: sw1 → straight down → bottom corners →
-                  straight across → sw2.  next = [seg0]
+          seg0 – long way round: sw2 → right semicircle (B4) → top (B5) →
+                  left semicircle (B1) → sw1.
+                  next = [seg1 (main bottom), seg2 (siding)]
+          seg1 – bottom straight B2: sw1 → sw2.  next = [seg0]
+          seg2 – siding B3: sw1 → down → across → up → sw2.  next = [seg0]
         """
-        cx, cy = 400, 220
-        rx, ry = 280, 150
+        left_cx, right_cx, mid_y = 140, 660, 200
+        r_end = 80
+        top_y    = mid_y - r_end   # 120
+        bottom_y = mid_y + r_end   # 280
 
-        sw1_deg = 65.0
-        sw2_deg = 115.0
+        sw1 = (220, bottom_y)   # switch near left end
+        sw2 = (580, bottom_y)   # switch near right end
 
-        sw1 = (cx + rx * math.cos(math.radians(sw1_deg)),
-               cy + ry * math.sin(math.radians(sw1_deg)))
-        sw2 = (cx + rx * math.cos(math.radians(sw2_deg)),
-               cy + ry * math.sin(math.radians(sw2_deg)))
-
-        # seg0: main arc (counterclockwise around the top)
-        seg0_pts = _arc_points(cx, cy, rx, ry, sw2_deg, sw1_deg + 360, steps=120)
+        # seg0: clockwise on screen from sw2 → right semicircle → top → left semicircle → sw1
+        seg0_pts = (
+            _line_points(sw2[0], sw2[1], right_cx, bottom_y, steps=5)
+            # right semicircle: bottom (90°) → top (−90°) via right side
+            + _arc_points(right_cx, mid_y, r_end, r_end, 90, -90, steps=40)[1:]
+            # top straight: right → left
+            + _line_points(right_cx, top_y, left_cx, top_y, steps=30)[1:]
+            # left semicircle: top (270°) → bottom (90°) via left side
+            + _arc_points(left_cx, mid_y, r_end, r_end, 270, 90, steps=40)[1:]
+            # short bottom-left straight to sw1
+            + _line_points(left_cx, bottom_y, sw1[0], sw1[1], steps=5)[1:]
+        )
         seg0 = Segment(seg0_pts)
 
-        # seg1: bypass arc along the bottom of the oval
-        seg1_pts = _arc_points(cx, cy, rx, ry, sw1_deg, sw2_deg, steps=30)
+        # seg1: bottom straight, sw1 → sw2
+        seg1_pts = _line_points(sw1[0], sw1[1], sw2[0], sw2[1], steps=20)
         seg1 = Segment(seg1_pts)
 
-        # seg2: siding — a U-shape below the oval with rounded corners
-        siding_depth = 65   # pixels below sw1/sw2
-        corner_r = 18        # corner radius
+        # seg2: siding B3 – 45° switch entries, horizontal lower straight
+        siding_depth = 80   # pixels below bottom straight
+        corner_r = 25
+        sq2 = math.sqrt(2)
 
-        # sw1 and sw2 have approximately the same y since they're symmetric
-        siding_y = max(sw1[1], sw2[1]) + siding_depth
+        siding_y = bottom_y + siding_depth   # 360
+
+        # Arc centres: chosen so each arc is simultaneously tangent to the 45°
+        # diagonal from the switch and to the horizontal siding track.
+        #   O.y = siding_y − corner_r  (tangent to horizontal from above)
+        #   O.x = sw_x ± (depth + corner_r*(√2−1))  (tangent to 45° line)
+        lc_x = sw1[0] + siding_depth + corner_r * (sq2 - 1)  # left  corner centre x
+        lc_y = siding_y - corner_r                            # left  corner centre y
+        rc_x = sw2[0] - siding_depth - corner_r * (sq2 - 1)  # right corner centre x
+        rc_y = siding_y - corner_r                            # right corner centre y
 
         seg2_pts = (
             [sw1]
-            # drop straight down from sw1 to the top of the bottom-right corner
-            + _line_points(sw1[0], sw1[1], sw1[0], siding_y - corner_r, steps=8)[1:]
-            # bottom-right corner: arc 0° → 90° (right side to bottom of circle)
-            #   circle centre = (sw1[0] - corner_r, siding_y - corner_r)
-            + _arc_points(sw1[0] - corner_r, siding_y - corner_r,
-                          corner_r, corner_r, 0, 90, steps=8)[1:]
+            # 45° diagonal: sw1 down-right to the left-corner tangent point
+            + _line_points(sw1[0], sw1[1],
+                           lc_x - corner_r / sq2, lc_y + corner_r / sq2, steps=8)[1:]
+            # left corner arc: 135° → 90°  (45° line → horizontal)
+            + _arc_points(lc_x, lc_y, corner_r, corner_r, 135, 90, steps=8)[1:]
             # straight across the bottom
-            + _line_points(sw1[0] - corner_r, siding_y,
-                           sw2[0] + corner_r, siding_y, steps=20)[1:]
-            # bottom-left corner: arc 90° → 180° (bottom to left side of circle)
-            #   circle centre = (sw2[0] + corner_r, siding_y - corner_r)
-            + _arc_points(sw2[0] + corner_r, siding_y - corner_r,
-                          corner_r, corner_r, 90, 180, steps=8)[1:]
-            # rise straight up to sw2
-            + _line_points(sw2[0], siding_y - corner_r, sw2[0], sw2[1], steps=8)[1:]
+            + _line_points(lc_x, siding_y, rc_x, siding_y, steps=20)[1:]
+            # right corner arc: 90° → 45°  (horizontal → 45° line)
+            + _arc_points(rc_x, rc_y, corner_r, corner_r, 90, 45, steps=8)[1:]
+            # 45° diagonal: right-corner tangent point up-right to sw2
+            + _line_points(rc_x + corner_r / sq2, rc_y + corner_r / sq2,
+                           sw2[0], sw2[1], steps=8)[1:]
         )
         seg2 = Segment(seg2_pts)
 
         # Wire the segment graph
-        seg0.next = [seg1, seg2]   # [0] = bypass (main), [1] = siding
+        seg0.next = [seg1, seg2]   # [0] = main bottom, [1] = siding
         seg1.next = [seg0]
         seg2.next = [seg0]
 

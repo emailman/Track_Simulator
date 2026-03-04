@@ -28,7 +28,7 @@ class App:
         )
         self.canvas.pack()
 
-        self.track = Track.build_oval_with_siding()
+        self.track = Track.build_rounded_rect_with_siding()
         self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
 
         self._draw_track()
