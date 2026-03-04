@@ -40,6 +40,7 @@ class App:
         self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
 
         self._draw_track()
+        self._draw_block_sections()
         self._draw_signals()
         self._train_sprite = self._create_train_sprite()
         self._route_label = self.canvas.create_text(
@@ -101,6 +102,41 @@ class App:
                 )
         # Draw switch markers at junction points
         self._draw_switch_markers()
+
+    def _draw_block_sections(self) -> None:
+        """Draw block boundary dots and BL1–BL5 labels."""
+        # Block boundaries: 4 insulated-joint positions on the main loop
+        # matching x-positions of SW1/SW2 on both top and bottom straights.
+        sw1_x, sw2_x = 220, 580
+        top_y, bottom_y = 120, 280
+        siding_y = 360
+
+        boundary_pts = [
+            (sw1_x, top_y),
+            (sw2_x, top_y),
+            (sw1_x, bottom_y),
+            (sw2_x, bottom_y),
+        ]
+        r = 4
+        for bx, by in boundary_pts:
+            self.canvas.create_oval(
+                bx - r, by - r, bx + r, by + r,
+                fill="black", outline="black"
+            )
+
+        # Block labels — placed near the centre of each section
+        block_labels = [
+            ("BL1",  90, 200),                          # left semicircle
+            ("BL2", (sw1_x + sw2_x) // 2, bottom_y - 14),  # bottom main straight
+            ("BL3", (sw1_x + sw2_x) // 2, siding_y - 14),   # siding
+            ("BL4", 713, 200),                          # right semicircle
+            ("BL5", (sw1_x + sw2_x) // 2, top_y - 14), # top straight
+        ]
+        for name, lx, ly in block_labels:
+            self.canvas.create_text(
+                lx, ly, text=name, fill="white",
+                font=("Helvetica", 9, "bold")
+            )
 
     def _draw_signals(self) -> None:
         """Draw the three static signals on the canvas."""
