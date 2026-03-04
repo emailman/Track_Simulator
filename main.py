@@ -57,7 +57,7 @@ class App:
                 self.canvas.create_line(
                     *flat,
                     fill=TRACK_COLOR, width=TRACK_WIDTH,
-                    capstyle=tk.ROUND, joinstyle=tk.ROUND
+                    capstyle="round", joinstyle="round"
                 )
         # Draw switch markers at junction points
         self._draw_switch_markers()
@@ -114,6 +114,7 @@ class App:
         self.train.update(dt)
         self._update_train_sprite()
 
+        # noinspection PyTypeChecker
         self.root.after(FRAME_MS, self._loop)
 
     # ------------------------------------------------------------------
