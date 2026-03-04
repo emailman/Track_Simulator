@@ -2,6 +2,8 @@
 
 A Python/tkinter visual train simulator featuring an oval main loop with a passing siding.
 
+![Track Simulator screenshot](screenshot.png)
+
 ## Requirements
 
 - Python 3.14+
