@@ -108,8 +108,8 @@ class App:
         #  SG2 — right switch area (just right of sw2=(580,280))
         #  SG3 — right end of the horizontal siding (siding_y=360)
         self.signals = [
-            Signal(self.canvas, 190,  283, "SG1"),
-            Signal(self.canvas, 550,  283, "SG2"),
+            Signal(self.canvas, 190,  280, "SG1"),
+            Signal(self.canvas, 550,  280, "SG2"),
             Signal(self.canvas, 505,  363, "SG3", flip=True),
         ]
 

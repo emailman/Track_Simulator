@@ -73,10 +73,10 @@ class Signal:
             mast_end = by + MAST_H
             head_top = mast_end
         else:
-            # Label sits below the mast base; head rises above
-            label_y   = by + 10
+            # Head rises above mast base; label sits above the head
             mast_end  = by - MAST_H
             head_top  = mast_end - HEAD_H
+            label_y   = head_top - 10
 
         # Mast stub
         self.canvas.create_line(
