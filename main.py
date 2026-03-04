@@ -2,6 +2,7 @@ import math
 import time
 import tkinter as tk
 
+from signals import Signal
 from track import Track
 from train import Train
 
@@ -32,6 +33,7 @@ class App:
         self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
 
         self._draw_track()
+        self._draw_signals()
         self._train_sprite = self._create_train_sprite()
         self._route_label = self.canvas.create_text(
             10, 10, anchor="nw", fill="white",
@@ -62,16 +64,52 @@ class App:
         # Draw switch markers at junction points
         self._draw_switch_markers()
 
+    def _draw_signals(self) -> None:
+        """Draw the three static signals on the canvas."""
+        #  SG1 — left switch area (between left semicircle and sw1=(220,280))
+        #  SG2 — right switch area (just right of sw2=(580,280))
+        #  SG3 — right end of the horizontal siding (siding_y=360)
+        self.signals = [
+            Signal(self.canvas, 190,  283, "SG1"),
+            Signal(self.canvas, 550,  283, "SG2"),
+            Signal(self.canvas, 505,  363, "SG3", flip=True),
+        ]
+
     def _draw_switch_markers(self) -> None:
         r = 6
+        self._switch_markers = []
+        marked: set[tuple[int, int]] = set()
+
+        def _add_marker(x: float, y: float) -> None:
+            pnt = (round(x), round(y))
+            if pnt in marked:
+                return
+            marked.add(pnt)
+            oid = self.canvas.create_oval(
+                x - r, y - r, x + r, y + r,
+                fill="#00BB00", outline="#FFA500", width=2
+            )
+            self._switch_markers.append(oid)
+
+        # Diverging switches: segment ends where multiple next-segments branch
         for seg in self.track.segments:
             if len(seg.next) > 1:
-                # This segment leads to a switch — mark the end point
-                x, y = seg.points[-1]
-                self.canvas.create_oval(
-                    x - r, y - r, x + r, y + r,
-                    fill="#FFD700", outline="#FFA500", width=2
-                )
+                _add_marker(*seg.points[-1])
+
+        # Converging switches: multiple segments share the same endpoint
+        from collections import defaultdict
+        end_counts: dict[tuple[int, int], list] = defaultdict(list)
+        for seg in self.track.segments:
+            pt = (round(seg.points[-1][0]), round(seg.points[-1][1]))
+            end_counts[pt].append(seg)
+        for pt, segments in end_counts.items():
+            if len(segments) > 1:
+                _add_marker(*pt)
+
+    def _update_switch_markers(self) -> None:
+        color = "#00BB00" if self.train.route == "main" else "#FFD700"
+        for oid in self._switch_markers:
+            self.canvas.itemconfig(oid, fill=color)
 
     # ------------------------------------------------------------------
     # Train sprite
@@ -124,6 +162,7 @@ class App:
     def _toggle_route(self) -> None:
         self.train.toggle_route()
         self.canvas.itemconfig(self._route_label, text=self._route_text())
+        self._update_switch_markers()
 
     def _route_text(self) -> str:
         route = self.train.route.upper()

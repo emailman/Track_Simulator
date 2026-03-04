@@ -71,7 +71,7 @@ class Track:
         Build a main rounded-rectangle loop with one passing siding below it.
 
         Layout (clockwise on screen, canvas 800×500):
-          Main loop: left-end centre (140, 200), right-end centre (660, 200),
+          Main loop: left-end center (140, 200), right-end center (660, 200),
                      end-radius = 80.
           B5  – top straight:    y=120, x ∈ [140, 660]
           B2  – bottom straight: y=280, x ∈ [140, 660]
@@ -122,10 +122,10 @@ class Track:
         # diagonal from the switch and to the horizontal siding track.
         #   O.y = siding_y − corner_r  (tangent to horizontal from above)
         #   O.x = sw_x ± (depth + corner_r*(√2−1))  (tangent to 45° line)
-        lc_x = sw1[0] + siding_depth + corner_r * (sq2 - 1)  # left  corner centre x
-        lc_y = siding_y - corner_r                            # left  corner centre y
-        rc_x = sw2[0] - siding_depth - corner_r * (sq2 - 1)  # right corner centre x
-        rc_y = siding_y - corner_r                            # right corner centre y
+        lc_x = sw1[0] + siding_depth + corner_r * (sq2 - 1)  # left  corner center x
+        lc_y = siding_y - corner_r                            # left  corner center y
+        rc_x = sw2[0] - siding_depth - corner_r * (sq2 - 1)  # right corner center x
+        rc_y = siding_y - corner_r                            # right corner center y
 
         seg2_pts = (
             [sw1]
