@@ -73,6 +73,7 @@ class Track:
 
     def __init__(self, segments: list[Segment]):
         self.segments = segments
+        self.block_ranges: dict[str, tuple[Segment, float, float]] = {}
 
     @classmethod
     def build_rounded_rect_with_siding(cls) -> "Track":

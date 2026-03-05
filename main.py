@@ -34,7 +34,7 @@ class App:
             main_frame, width=CANVAS_W, height=CANVAS_H,
             bg=BG_COLOR, highlightthickness=0
         )
-        self.canvas.pack(side=tk.LEFT)
+        self.canvas.pack(side="left")
 
         self._sw1_var = tk.IntVar(value=0)
         self._create_switch_panel(main_frame)
@@ -77,7 +77,7 @@ class App:
 
     def _create_switch_panel(self, parent: tk.Frame) -> None:
         panel = tk.Frame(parent, bg=PANEL_COLOR, width=120, height=CANVAS_H)
-        panel.pack(side=tk.LEFT, fill=tk.Y)
+        panel.pack(side="left", fill="y")
         panel.pack_propagate(False)
 
         inner = tk.Frame(panel, bg=PANEL_COLOR)
@@ -90,7 +90,7 @@ class App:
 
         tk.Scale(
             inner, variable=self._sw1_var, from_=0, to=1,
-            orient=tk.VERTICAL, showvalue=False,
+            orient="vertical", showvalue=False,
             bg=PANEL_COLOR, fg="white", troughcolor="#333333",
             activebackground="#FFA500", highlightthickness=0,
             resolution=1, length=60,
