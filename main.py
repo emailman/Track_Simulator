@@ -13,7 +13,8 @@ FRAME_MS = 1000 // FPS
 
 TRACK_COLOR = "#888888"
 TRACK_WIDTH = 10
-TRAIN_COLOR = "#FFFFFF"
+TRAIN_COLOR  = "#4488FF"
+TRAIN2_COLOR = "#FF8C00"
 BG_COLOR = "#2d5a27"
 PANEL_COLOR = "#1a3a16"
 
@@ -34,22 +35,34 @@ class App:
         self.canvas.pack(side=tk.LEFT)
 
         self._sw1_var = tk.IntVar(value=0)
+        self._t2_speed_var = tk.IntVar(value=150)
         self._create_switch_panel(main_frame)
 
         self.track = Track.build_rounded_rect_with_siding()
         self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
 
+        # Train 2: starts at the centre of BL5 on seg0
+        _seg0 = self.track.segments[0]
+        _bl5_seg, _t0, _t1 = self.track.block_ranges["BL5"]
+        self.train2 = Train(segment=_bl5_seg, speed=150.0, route="main")
+        self.train2.t = (_t0 + _t1) / 2
+
         self._draw_track()
         self._draw_block_sections()
         self._draw_signals()
-        self._train_sprite = self._create_train_sprite()
+        self._train_sprite  = self._create_train_sprite(self.train,  TRAIN_COLOR)
+        self._train2_sprite = self._create_train_sprite(self.train2, TRAIN2_COLOR)
         self._route_label = self.canvas.create_text(
             10, 10, anchor="nw", fill="white",
             font=("Courier", 12), text=self._route_text()
         )
         self._block_label = self.canvas.create_text(
             10, 30, anchor="nw", fill="yellow",
-            font=("Courier", 12), text="Block: ?"
+            font=("Courier", 12), text="T1 Block: ?"
+        )
+        self._block2_label = self.canvas.create_text(
+            10, 50, anchor="nw", fill=TRAIN2_COLOR,
+            font=("Courier", 12), text="T2 Block: ?"
         )
 
         self._switch_transition_end: float = 0.0
@@ -85,9 +98,30 @@ class App:
         tk.Label(inner, text="SIDING", bg=PANEL_COLOR, fg="#aaaaaa",
                  font=("Helvetica", 7)).pack()
 
+        tk.Frame(inner, height=12, bg=PANEL_COLOR).pack()
+        tk.Label(inner, text="T2 SPEED", bg=PANEL_COLOR, fg=TRAIN2_COLOR,
+                 font=("Helvetica", 9, "bold")).pack(pady=(0, 2))
+        tk.Label(inner, text="300", bg=PANEL_COLOR, fg="#aaaaaa",
+                 font=("Helvetica", 7)).pack()
+        tk.Scale(
+            inner, variable=self._t2_speed_var, from_=300, to=0,
+            orient=tk.VERTICAL, showvalue=False,
+            bg=PANEL_COLOR, fg="white", troughcolor="#333333",
+            activebackground=TRAIN2_COLOR, highlightthickness=0,
+            resolution=10, length=120,
+            command=lambda _v: self._on_t2_speed(),
+        ).pack()
+        tk.Label(inner, text="0", bg=PANEL_COLOR, fg="#aaaaaa",
+                 font=("Helvetica", 7)).pack()
+
+    def _on_t2_speed(self) -> None:
+        self.train2.speed = float(self._t2_speed_var.get())
+
     def _on_switch(self) -> None:
         """Called when the SW1 slider moves."""
-        self.train.route = "siding" if self._sw1_var.get() == 1 else "main"
+        route = "siding" if self._sw1_var.get() == 1 else "main"
+        self.train.route = route
+        self.train2.route = route
         self._switch_transition_end = time.perf_counter() + 2.0
         for oid in self._switch_markers:
             self.canvas.itemconfig(oid, fill="#FF0000")
@@ -203,17 +237,16 @@ class App:
     # Train sprite
     # ------------------------------------------------------------------
 
-    def _create_train_sprite(self) -> int:
-        x, y = self.train.xy
+    def _create_train_sprite(self, train: Train, color: str) -> int:
+        x, y = train.xy
         return self.canvas.create_rectangle(
             x - 12, y - 6, x + 12, y + 6,
-            fill=TRAIN_COLOR, outline="#AAAAAA", width=1
+            fill=color, outline="#AAAAAA", width=1
         )
 
-    def _update_train_sprite(self) -> None:
-        x, y = self.train.xy
-        angle = self.train.angle
-        # Rotate the four corners of the train rectangle
+    def _update_sprite(self, sprite_id: int, train: Train, color: str) -> int:
+        x, y = train.xy
+        angle = train.angle
         hw, hh = 12, 5
         corners = [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]
         rotated = []
@@ -222,10 +255,9 @@ class App:
             rx = dx * cos_a - dy * sin_a + x
             ry = dx * sin_a + dy * cos_a + y
             rotated.extend([rx, ry])
-        # Recreate as polygon for rotation support
-        self.canvas.delete(self._train_sprite)
-        self._train_sprite = self.canvas.create_polygon(
-            *rotated, fill=TRAIN_COLOR, outline="#AAAAAA", width=1
+        self.canvas.delete(sprite_id)
+        return self.canvas.create_polygon(
+            *rotated, fill=color, outline="#AAAAAA", width=1
         )
 
     # ------------------------------------------------------------------
@@ -238,14 +270,18 @@ class App:
         self._last_time = now
 
         self.train.update(dt)
-        self._update_train_sprite()
+        self.train2.update(dt)
+        self._train_sprite  = self._update_sprite(self._train_sprite,  self.train,  TRAIN_COLOR)
+        self._train2_sprite = self._update_sprite(self._train2_sprite, self.train2, TRAIN2_COLOR)
 
         if self._switch_transition_end and time.perf_counter() >= self._switch_transition_end:
             self._switch_transition_end = 0.0
             self._update_switch_markers()
 
-        block = self.train.current_block(self.track.block_ranges)
-        self.canvas.itemconfig(self._block_label, text=f"Block: {block}")
+        block  = self.train.current_block(self.track.block_ranges)
+        block2 = self.train2.current_block(self.track.block_ranges)
+        self.canvas.itemconfig(self._block_label,  text=f"T1 Block: {block}")
+        self.canvas.itemconfig(self._block2_label, text=f"T2 Block: {block2}")
 
         # noinspection PyTypeChecker
         self.root.after(FRAME_MS, self._loop)
