@@ -18,6 +18,8 @@ TRAIN2_COLOR = "#FF8C00"
 BG_COLOR = "#2d5a27"
 PANEL_COLOR = "#1a3a16"
 
+BLOCK_SPEEDS = {"BL1": 150, "BL2": 300, "BL3": 75, "BL4": 150, "BL5": 300}
+
 
 class App:
     def __init__(self):
@@ -35,17 +37,15 @@ class App:
         self.canvas.pack(side=tk.LEFT)
 
         self._sw1_var = tk.IntVar(value=0)
-        self._t1_speed_var = tk.IntVar(value=150)
-        self._t2_speed_var = tk.IntVar(value=150)
         self._create_switch_panel(main_frame)
 
         self.track = Track.build_rounded_rect_with_siding()
-        self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
+        self.train = Train(segment=self.track.segments[0], speed=BLOCK_SPEEDS["BL4"], route="main")
 
         # Train 2: starts at the center of BL5 on seg0
         _seg0 = self.track.segments[0]
         _bl5_seg, _t0, _t1 = self.track.block_ranges["BL5"]
-        self.train2 = Train(segment=_bl5_seg, speed=150.0, route="main")
+        self.train2 = Train(segment=_bl5_seg, speed=BLOCK_SPEEDS["BL5"], route="main")
         self.train2.t = (_t0 + _t1) / 2
 
         self._switch_transition_end: float = 0.0
@@ -60,12 +60,12 @@ class App:
         )
         self._block_label = self.canvas.create_text(
             10, 30, anchor="nw", fill=TRAIN_COLOR,
-            font=("Courier", 12), text="T1 Block: ?"
+            font=("Courier", 12), text="T1 Block: ?  Speed: ?"
         )
 
         self._block2_label = self.canvas.create_text(
             10, 50, anchor="nw", fill=TRAIN2_COLOR,
-            font=("Courier", 12), text="T2 Block: ?"
+            font=("Courier", 12), text="T2 Block: ?  Speed: ?"
         )
 
         self._last_time = time.perf_counter()
@@ -99,44 +99,6 @@ class App:
 
         tk.Label(inner, text="SIDING", bg=PANEL_COLOR, fg="#aaaaaa",
                  font=("Helvetica", 7)).pack()
-
-        tk.Frame(inner, height=12, bg=PANEL_COLOR).pack()
-        tk.Label(inner, text="T1 SPEED", bg=PANEL_COLOR, fg=TRAIN_COLOR,
-                 font=("Helvetica", 9, "bold")).pack(pady=(0, 2))
-        tk.Label(inner, text="300", bg=PANEL_COLOR, fg="#aaaaaa",
-                 font=("Helvetica", 7)).pack()
-        tk.Scale(
-            inner, variable=self._t1_speed_var, from_=300, to=0,
-            orient=tk.VERTICAL, showvalue=False,
-            bg=PANEL_COLOR, fg="white", troughcolor="#333333",
-            activebackground=TRAIN_COLOR, highlightthickness=0,
-            resolution=10, length=120,
-            command=lambda _v: self._on_t1_speed(),
-        ).pack()
-        tk.Label(inner, text="0", bg=PANEL_COLOR, fg="#aaaaaa",
-                 font=("Helvetica", 7)).pack()
-
-        tk.Frame(inner, height=12, bg=PANEL_COLOR).pack()
-        tk.Label(inner, text="T2 SPEED", bg=PANEL_COLOR, fg=TRAIN2_COLOR,
-                 font=("Helvetica", 9, "bold")).pack(pady=(0, 2))
-        tk.Label(inner, text="300", bg=PANEL_COLOR, fg="#aaaaaa",
-                 font=("Helvetica", 7)).pack()
-        tk.Scale(
-            inner, variable=self._t2_speed_var, from_=300, to=0,
-            orient=tk.VERTICAL, showvalue=False,
-            bg=PANEL_COLOR, fg="white", troughcolor="#333333",
-            activebackground=TRAIN2_COLOR, highlightthickness=0,
-            resolution=10, length=120,
-            command=lambda _v: self._on_t2_speed(),
-        ).pack()
-        tk.Label(inner, text="0", bg=PANEL_COLOR, fg="#aaaaaa",
-                 font=("Helvetica", 7)).pack()
-
-    def _on_t1_speed(self) -> None:
-        self.train.speed = float(self._t1_speed_var.get())
-
-    def _on_t2_speed(self) -> None:
-        self.train2.speed = float(self._t2_speed_var.get())
 
     def _on_switch(self) -> None:
         """Called when the SW1 slider moves."""
@@ -327,8 +289,10 @@ class App:
 
         block  = self.train.current_block(self.track.block_ranges)
         block2 = self.train2.current_block(self.track.block_ranges)
-        self.canvas.itemconfig(self._block_label,  text=f"T1 Block: {block}")
-        self.canvas.itemconfig(self._block2_label, text=f"T2 Block: {block2}")
+        if block  in BLOCK_SPEEDS: self.train.speed  = BLOCK_SPEEDS[block]
+        if block2 in BLOCK_SPEEDS: self.train2.speed = BLOCK_SPEEDS[block2]
+        self.canvas.itemconfig(self._block_label,  text=f"T1 Block: {block}  Speed: {int(self.train.speed)}")
+        self.canvas.itemconfig(self._block2_label, text=f"T2 Block: {block2}  Speed: {int(self.train2.speed)}")
 
         # noinspection PyTypeChecker
         self.root.after(FRAME_MS, self._loop)
