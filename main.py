@@ -42,7 +42,7 @@ class App:
         self.track = Track.build_rounded_rect_with_siding()
         self.train = Train(segment=self.track.segments[0], speed=150.0, route="main")
 
-        # Train 2: starts at the centre of BL5 on seg0
+        # Train 2: starts at the center of BL5 on seg0
         _seg0 = self.track.segments[0]
         _bl5_seg, _t0, _t1 = self.track.block_ranges["BL5"]
         self.train2 = Train(segment=_bl5_seg, speed=150.0, route="main")
@@ -187,7 +187,7 @@ class App:
                 fill="black", outline="black"
             )
 
-        # Block labels — placed near the centre of each section
+        # Block labels — placed near the center of each section
         block_labels = [
             ("BL1",  90, 200),                          # left semicircle
             ("BL2", (sw1_x + sw2_x) // 2, bottom_y - 14),  # bottom main straight
@@ -252,15 +252,27 @@ class App:
                 _add_marker(*pt)
 
     def _update_signal_switch_indicators(self) -> None:
-        """Set frame 1 (bottom) of every signal to reflect switch state."""
+        """Set frame 0 (top) and frame 1 (bottom) of every signal to reflect switch state."""
         if self._switch_transition_end:
-            light = LT_RED
+            bottom = LT_RED
         elif self.train.route == "main":
-            light = LT_GREEN
+            bottom = LT_GREEN
         else:
-            light = LT_YELLOW
-        for sig in self.signals:
-            sig.set_frame(1, light)
+            bottom = LT_YELLOW
+
+        # Per-signal top-head mapping (bottom → top):
+        # SG1: mirrors bottom exactly
+        # SG2: green→green, red→red, yellow→red  (never yellow)
+        # SG3: green→red,   red→red, yellow→yellow  (never green)
+        top_maps = [
+            {LT_GREEN: LT_GREEN, LT_RED: LT_RED,   LT_YELLOW: LT_YELLOW},  # SG1
+            {LT_GREEN: LT_GREEN, LT_RED: LT_RED,   LT_YELLOW: LT_RED},     # SG2
+            {LT_GREEN: LT_RED,   LT_RED: LT_RED,   LT_YELLOW: LT_YELLOW},  # SG3
+        ]
+
+        for sig, top_map in zip(self.signals, top_maps):
+            sig.set_frame(1, bottom)
+            sig.set_frame(0, top_map[bottom])
 
     def _update_switch_markers(self) -> None:
         color = "#00CC00" if self.train.route == "main" else "#FFFF00"
