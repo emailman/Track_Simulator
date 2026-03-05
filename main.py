@@ -35,6 +35,7 @@ class App:
         self.canvas.pack(side=tk.LEFT)
 
         self._sw1_var = tk.IntVar(value=0)
+        self._t1_speed_var = tk.IntVar(value=150)
         self._t2_speed_var = tk.IntVar(value=150)
         self._create_switch_panel(main_frame)
 
@@ -57,9 +58,10 @@ class App:
             font=("Courier", 12), text=self._route_text()
         )
         self._block_label = self.canvas.create_text(
-            10, 30, anchor="nw", fill="yellow",
+            10, 30, anchor="nw", fill=TRAIN_COLOR,
             font=("Courier", 12), text="T1 Block: ?"
         )
+
         self._block2_label = self.canvas.create_text(
             10, 50, anchor="nw", fill=TRAIN2_COLOR,
             font=("Courier", 12), text="T2 Block: ?"
@@ -91,11 +93,27 @@ class App:
             orient=tk.VERTICAL, showvalue=False,
             bg=PANEL_COLOR, fg="white", troughcolor="#333333",
             activebackground="#FFA500", highlightthickness=0,
-            resolution=1, length=100,
+            resolution=1, length=60,
             command=lambda _v: self._on_switch(),
         ).pack()
 
         tk.Label(inner, text="SIDING", bg=PANEL_COLOR, fg="#aaaaaa",
+                 font=("Helvetica", 7)).pack()
+
+        tk.Frame(inner, height=12, bg=PANEL_COLOR).pack()
+        tk.Label(inner, text="T1 SPEED", bg=PANEL_COLOR, fg=TRAIN_COLOR,
+                 font=("Helvetica", 9, "bold")).pack(pady=(0, 2))
+        tk.Label(inner, text="300", bg=PANEL_COLOR, fg="#aaaaaa",
+                 font=("Helvetica", 7)).pack()
+        tk.Scale(
+            inner, variable=self._t1_speed_var, from_=300, to=0,
+            orient=tk.VERTICAL, showvalue=False,
+            bg=PANEL_COLOR, fg="white", troughcolor="#333333",
+            activebackground=TRAIN_COLOR, highlightthickness=0,
+            resolution=10, length=120,
+            command=lambda _v: self._on_t1_speed(),
+        ).pack()
+        tk.Label(inner, text="0", bg=PANEL_COLOR, fg="#aaaaaa",
                  font=("Helvetica", 7)).pack()
 
         tk.Frame(inner, height=12, bg=PANEL_COLOR).pack()
@@ -113,6 +131,9 @@ class App:
         ).pack()
         tk.Label(inner, text="0", bg=PANEL_COLOR, fg="#aaaaaa",
                  font=("Helvetica", 7)).pack()
+
+    def _on_t1_speed(self) -> None:
+        self.train.speed = float(self._t1_speed_var.get())
 
     def _on_t2_speed(self) -> None:
         self.train2.speed = float(self._t2_speed_var.get())
