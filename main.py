@@ -2,7 +2,7 @@ import math
 import time
 import tkinter as tk
 
-from signals import Signal
+from signals import Signal, LT_GREEN, LT_RED, LT_YELLOW
 from track import Track
 from train import Train
 
@@ -48,6 +48,7 @@ class App:
         self.train2 = Train(segment=_bl5_seg, speed=150.0, route="main")
         self.train2.t = (_t0 + _t1) / 2
 
+        self._switch_transition_end: float = 0.0
         self._draw_track()
         self._draw_block_sections()
         self._draw_signals()
@@ -67,7 +68,6 @@ class App:
             font=("Courier", 12), text="T2 Block: ?"
         )
 
-        self._switch_transition_end: float = 0.0
         self._last_time = time.perf_counter()
         self._loop()
 
@@ -146,6 +146,7 @@ class App:
         self._switch_transition_end = time.perf_counter() + 2.0
         for oid in self._switch_markers:
             self.canvas.itemconfig(oid, fill="#FF0000")
+        self._update_signal_switch_indicators()
         self.canvas.itemconfig(self._route_label, text=self._route_text())
 
     # ------------------------------------------------------------------
@@ -210,6 +211,7 @@ class App:
             Signal(self.canvas, 550,  280, "SG2"),
             Signal(self.canvas, 505,  363, "SG3", flip=True),
         ]
+        self._update_signal_switch_indicators()
 
     def _draw_switch_markers(self) -> None:
         r = 6
@@ -248,6 +250,17 @@ class App:
         for pt, segments in end_counts.items():
             if len(segments) > 1:
                 _add_marker(*pt)
+
+    def _update_signal_switch_indicators(self) -> None:
+        """Set frame 1 (bottom) of every signal to reflect switch state."""
+        if self._switch_transition_end:
+            light = LT_RED
+        elif self.train.route == "main":
+            light = LT_GREEN
+        else:
+            light = LT_YELLOW
+        for sig in self.signals:
+            sig.set_frame(1, light)
 
     def _update_switch_markers(self) -> None:
         color = "#00CC00" if self.train.route == "main" else "#FFFF00"
@@ -298,6 +311,7 @@ class App:
         if self._switch_transition_end and time.perf_counter() >= self._switch_transition_end:
             self._switch_transition_end = 0.0
             self._update_switch_markers()
+            self._update_signal_switch_indicators()
 
         block  = self.train.current_block(self.track.block_ranges)
         block2 = self.train2.current_block(self.track.block_ranges)
