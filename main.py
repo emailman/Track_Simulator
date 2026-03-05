@@ -52,6 +52,7 @@ class App:
             font=("Courier", 12), text="Block: ?"
         )
 
+        self._switch_transition_end: float = 0.0
         self._last_time = time.perf_counter()
         self._loop()
 
@@ -87,7 +88,9 @@ class App:
     def _on_switch(self) -> None:
         """Called when the SW1 slider moves."""
         self.train.route = "siding" if self._sw1_var.get() == 1 else "main"
-        self._update_switch_markers()
+        self._switch_transition_end = time.perf_counter() + 2.0
+        for oid in self._switch_markers:
+            self.canvas.itemconfig(oid, fill="#FF0000")
         self.canvas.itemconfig(self._route_label, text=self._route_text())
 
     # ------------------------------------------------------------------
@@ -167,7 +170,7 @@ class App:
             marked.add(pnt)
             oid = self.canvas.create_oval(
                 x - r, y - r, x + r, y + r,
-                fill="#00BB00", outline="#FFA500", width=2
+                fill="#00CC00", outline="#333333", width=2
             )
             self._switch_markers.append(oid)
             lid = self.canvas.create_text(
@@ -192,7 +195,7 @@ class App:
                 _add_marker(*pt)
 
     def _update_switch_markers(self) -> None:
-        color = "#00BB00" if self.train.route == "main" else "#FFD700"
+        color = "#00CC00" if self.train.route == "main" else "#FFFF00"
         for oid in self._switch_markers:
             self.canvas.itemconfig(oid, fill=color)
 
@@ -236,6 +239,10 @@ class App:
 
         self.train.update(dt)
         self._update_train_sprite()
+
+        if self._switch_transition_end and time.perf_counter() >= self._switch_transition_end:
+            self._switch_transition_end = 0.0
+            self._update_switch_markers()
 
         block = self.train.current_block(self.track.block_ranges)
         self.canvas.itemconfig(self._block_label, text=f"Block: {block}")
