@@ -359,7 +359,7 @@ class App:
                 self.train2.t = min(self.train2.t, self._bl4_t0)
             self.train2.speed = 0
 
-        # Orange train: stop 3 s at centre of BL2, then set SW2 straight
+        # Orange train: stop 3 s at center of BL2, then set SW2 straight
         if block2 != "BL2":
             self._train2_bl2_stopped = False
         elif (not self._train2_bl2_stopped
@@ -374,7 +374,7 @@ class App:
                 self._train2_stop_until = 0.0
                 self._set_sw2("main")
 
-        # Blue train: stop 3 s at centre of BL3, then set SW2 diverge
+        # Blue train: stop 3 s at center of BL3, then set SW2 diverge
         if block != "BL3":
             self._train_bl3_stopped = False
         elif (not self._train_bl3_stopped

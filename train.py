@@ -49,15 +49,15 @@ class Train:
 
     def _cross_to_next_segment(self) -> None:
         """Move to the next segment according to the current route."""
-        nexts = self.segment.next
-        if not nexts:
+        next_seg = self.segment.next
+        if not next_seg:
             self.t = 0.0
             return
-        if len(nexts) == 1:
-            self.segment = nexts[0]
+        if len(next_seg) == 1:
+            self.segment = next_seg[0]
         else:
-            # nexts[0] = main bypass, nexts[1] = siding
-            self.segment = nexts[1] if self.route == "siding" else nexts[0]
+            # next_seg[0] = main bypass, next_seg[1] = siding
+            self.segment = next_seg[1] if self.route == "siding" else next_seg[0]
 
     def toggle_route(self) -> None:
         """Switch between 'main' and 'siding' route at the next junction."""
