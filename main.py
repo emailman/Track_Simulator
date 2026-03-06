@@ -18,7 +18,7 @@ TRAIN2_COLOR = "#FF8C00"
 BG_COLOR = "#2d5a27"
 PANEL_COLOR = "#1a3a16"
 
-BLOCK_SPEEDS = {"BL1": 150, "BL2": 300, "BL3": 75, "BL4": 150, "BL5": 300}
+BLOCK_SPEEDS = {"BL1": 150, "BL2": 75, "BL3": 75, "BL4": 150, "BL5": 300}
 
 
 class App:
@@ -40,15 +40,39 @@ class App:
         self._create_switch_panel(main_frame)
 
         self.track = Track.build_rounded_rect_with_siding()
-        self.train = Train(segment=self.track.segments[0], speed=BLOCK_SPEEDS["BL4"], route="main")
+        _bl4_seg, _bl4_t0, _bl4_t1 = self.track.block_ranges["BL4"]
+        self.train = Train(segment=_bl4_seg, speed=BLOCK_SPEEDS["BL4"], route="main")
+        self.train.t = (_bl4_t0 + _bl4_t1) / 2
 
-        # Train 2: starts at the center of BL5 on seg0
-        _seg0 = self.track.segments[0]
-        _bl5_seg, _t0, _t1 = self.track.block_ranges["BL5"]
-        self.train2 = Train(segment=_bl5_seg, speed=BLOCK_SPEEDS["BL5"], route="main")
-        self.train2.t = (_t0 + _t1) / 2
+        _bl1_seg, _bl1_t0, _bl1_t1 = self.track.block_ranges["BL1"]
+        self.train2 = Train(segment=_bl1_seg, speed=BLOCK_SPEEDS["BL1"], route="main")
+        self.train2.t = (_bl1_t0 + _bl1_t1) / 2
 
         self._switch_transition_end: float = 0.0
+        self._sw2_state: str = "main"
+        self._sw2_transition_end: float = 0.0
+        self._train_last_block: str = ""
+        self._train2_last_block: str = ""
+        _bl1_seg, _bl1_t0, _bl1_t1 = self.track.block_ranges["BL1"]
+        self._bl1_seg = _bl1_seg
+        self._bl1_t0: float = _bl1_t0
+        self._train_held_bl1: bool = False
+        self._train2_held_bl1: bool = False
+        _bl4_seg, _bl4_t0, _bl4_t1 = self.track.block_ranges["BL4"]
+        self._bl4_seg = _bl4_seg
+        self._bl4_t0: float = _bl4_t0
+        self._train_held_bl4: bool = False
+        self._train2_held_bl4: bool = False
+        _bl2_seg, _bl2_t0, _bl2_t1 = self.track.block_ranges["BL2"]
+        self._bl2_center_seg = _bl2_seg
+        self._bl2_center_t: float = (_bl2_t0 + _bl2_t1) / 2
+        self._train2_stop_until: float = 0.0
+        self._train2_bl2_stopped: bool = False
+        _bl3_seg, _bl3_t0, _bl3_t1 = self.track.block_ranges["BL3"]
+        self._bl3_center_seg = _bl3_seg
+        self._bl3_center_t: float = (_bl3_t0 + _bl3_t1) / 2
+        self._train_stop_until: float = 0.0
+        self._train_bl3_stopped: bool = False
         self._draw_track()
         self._draw_block_sections()
         self._draw_signals()
@@ -103,13 +127,33 @@ class App:
     def _on_switch(self) -> None:
         """Called when the SW1 slider moves."""
         route = "siding" if self._sw1_var.get() == 1 else "main"
+        self._set_route(route)
+
+    def _set_sw1(self, route: str) -> None:
+        """Set SW1 (diverging junction): controls which path trains take from seg0."""
+        if route == self.train.route and not self._switch_transition_end:
+            return
+        self._sw1_var.set(1 if route == "siding" else 0)
         self.train.route = route
         self.train2.route = route
-        self._switch_transition_end = time.perf_counter() + 2.0
-        for oid in self._switch_markers:
-            self.canvas.itemconfig(oid, fill="#FF0000")
+        self._switch_transition_end = time.perf_counter() + 1.0
+        self.canvas.itemconfig(self._switch_markers[0], fill="#FF0000")
         self._update_signal_switch_indicators()
         self.canvas.itemconfig(self._route_label, text=self._route_text())
+
+    def _set_sw2(self, route: str) -> None:
+        """Set SW2 (converging junction): visual/signal state only."""
+        if route == self._sw2_state and not self._sw2_transition_end:
+            return
+        self._sw2_state = route
+        self._sw2_transition_end = time.perf_counter() + 1.0
+        self.canvas.itemconfig(self._switch_markers[1], fill="#FF0000")
+        self._update_signal_switch_indicators()
+
+    def _set_route(self, route: str) -> None:
+        """Set both SW1 and SW2 together (used by manual panel)."""
+        self._set_sw1(route)
+        self._set_sw2(route)
 
     # ------------------------------------------------------------------
     # Track drawing
@@ -215,12 +259,20 @@ class App:
 
     def _update_signal_switch_indicators(self) -> None:
         """Set frame 0 (top) and frame 1 (bottom) of every signal to reflect switch state."""
+        # SG1 reflects SW1; SG2 and SG3 reflect SW2
         if self._switch_transition_end:
-            bottom = LT_RED
+            sw1_bottom = LT_RED
         elif self.train.route == "main":
-            bottom = LT_GREEN
+            sw1_bottom = LT_GREEN
         else:
-            bottom = LT_YELLOW
+            sw1_bottom = LT_YELLOW
+
+        if self._sw2_transition_end:
+            sw2_bottom = LT_RED
+        elif self._sw2_state == "main":
+            sw2_bottom = LT_GREEN
+        else:
+            sw2_bottom = LT_YELLOW
 
         # Per-signal top-head mapping (bottom → top):
         # SG1: mirrors bottom exactly
@@ -231,15 +283,17 @@ class App:
             {LT_GREEN: LT_GREEN, LT_RED: LT_RED,   LT_YELLOW: LT_RED},     # SG2
             {LT_GREEN: LT_RED,   LT_RED: LT_RED,   LT_YELLOW: LT_YELLOW},  # SG3
         ]
+        bottoms = [sw1_bottom, sw2_bottom, sw2_bottom]
 
-        for sig, top_map in zip(self.signals, top_maps):
+        for sig, bottom, top_map in zip(self.signals, bottoms, top_maps):
             sig.set_frame(1, bottom)
             sig.set_frame(0, top_map[bottom])
 
     def _update_switch_markers(self) -> None:
-        color = "#00CC00" if self.train.route == "main" else "#FFFF00"
-        for oid in self._switch_markers:
-            self.canvas.itemconfig(oid, fill=color)
+        sw1_color = "#00CC00" if self.train.route == "main" else "#FFFF00"
+        sw2_color = "#00CC00" if self._sw2_state == "main" else "#FFFF00"
+        self.canvas.itemconfig(self._switch_markers[0], fill=sw1_color)
+        self.canvas.itemconfig(self._switch_markers[1], fill=sw2_color)
 
     # ------------------------------------------------------------------
     # Train sprite
@@ -282,8 +336,12 @@ class App:
         self._train_sprite  = self._update_sprite(self._train_sprite,  self.train,  TRAIN_COLOR)
         self._train2_sprite = self._update_sprite(self._train2_sprite, self.train2, TRAIN2_COLOR)
 
-        if self._switch_transition_end and time.perf_counter() >= self._switch_transition_end:
+        if self._switch_transition_end and now >= self._switch_transition_end:
             self._switch_transition_end = 0.0
+            self._update_switch_markers()
+            self._update_signal_switch_indicators()
+        if self._sw2_transition_end and now >= self._sw2_transition_end:
+            self._sw2_transition_end = 0.0
             self._update_switch_markers()
             self._update_signal_switch_indicators()
 
@@ -291,6 +349,91 @@ class App:
         block2 = self.train2.current_block(self.track.block_ranges)
         if block  in BLOCK_SPEEDS: self.train.speed  = BLOCK_SPEEDS[block]
         if block2 in BLOCK_SPEEDS: self.train2.speed = BLOCK_SPEEDS[block2]
+
+        train_in_bl1  = block  == "BL1"
+        train2_in_bl1 = block2 == "BL1"
+        train_in_bl4  = block  == "BL4"
+        train2_in_bl4 = block2 == "BL4"
+
+        # Block-entry triggers: SW1 control, BL1 and BL4 mutual exclusion
+        if block != self._train_last_block:
+            if block == "BL1":
+                self._set_sw1("siding")
+                if train2_in_bl1:
+                    self._train_held_bl1 = True
+            if block == "BL4" and train2_in_bl4:
+                self._train_held_bl4 = True
+            self._train_last_block = block
+        if block2 != self._train2_last_block:
+            if block2 == "BL1":
+                self._set_sw1("main")
+                if train_in_bl1:
+                    self._train2_held_bl1 = True
+            if block2 == "BL4" and train_in_bl4:
+                self._train2_held_bl4 = True
+            self._train2_last_block = block2
+
+        # Release BL1 hold when the occupying train clears the section
+        if self._train_held_bl1 and not train2_in_bl1:
+            self._train_held_bl1 = False
+        if self._train2_held_bl1 and not train_in_bl1:
+            self._train2_held_bl1 = False
+
+        # Apply BL1 hold: clamp position at section entry and stop
+        if self._train_held_bl1:
+            if self.train.segment is self._bl1_seg:
+                self.train.t = min(self.train.t, self._bl1_t0)
+            self.train.speed = 0
+        if self._train2_held_bl1:
+            if self.train2.segment is self._bl1_seg:
+                self.train2.t = min(self.train2.t, self._bl1_t0)
+            self.train2.speed = 0
+
+        # Release BL4 hold when the occupying train clears the section
+        if self._train_held_bl4 and not train2_in_bl4:
+            self._train_held_bl4 = False
+        if self._train2_held_bl4 and not train_in_bl4:
+            self._train2_held_bl4 = False
+
+        # Apply BL4 hold: clamp position at section entry and stop
+        if self._train_held_bl4:
+            if self.train.segment is self._bl4_seg:
+                self.train.t = min(self.train.t, self._bl4_t0)
+            self.train.speed = 0
+        if self._train2_held_bl4:
+            if self.train2.segment is self._bl4_seg:
+                self.train2.t = min(self.train2.t, self._bl4_t0)
+            self.train2.speed = 0
+
+        # Orange train: stop 3 s at centre of BL2, then set SW2 straight
+        if block2 != "BL2":
+            self._train2_bl2_stopped = False
+        elif (not self._train2_bl2_stopped
+              and self.train2.segment is self._bl2_center_seg
+              and self.train2.t >= self._bl2_center_t):
+            self._train2_bl2_stopped = True
+            self._train2_stop_until = now + 3.0
+        if self._train2_stop_until:
+            if now < self._train2_stop_until or train_in_bl4:
+                self.train2.speed = 0
+            else:
+                self._train2_stop_until = 0.0
+                self._set_sw2("main")
+
+        # Blue train: stop 3 s at centre of BL3, then set SW2 diverge
+        if block != "BL3":
+            self._train_bl3_stopped = False
+        elif (not self._train_bl3_stopped
+              and self.train.segment is self._bl3_center_seg
+              and self.train.t >= self._bl3_center_t):
+            self._train_bl3_stopped = True
+            self._train_stop_until = now + 3.0
+        if self._train_stop_until:
+            if now < self._train_stop_until or train2_in_bl4:
+                self.train.speed = 0
+            else:
+                self._train_stop_until = 0.0
+                self._set_sw2("siding")
         self.canvas.itemconfig(self._block_label,  text=f"T1 Block: {block}  Speed: {int(self.train.speed)}")
         self.canvas.itemconfig(self._block2_label, text=f"T2 Block: {block2}  Speed: {int(self.train2.speed)}")
 
