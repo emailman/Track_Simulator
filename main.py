@@ -27,17 +27,11 @@ class App:
         self.root.title("Track Simulator")
         self.root.resizable(False, False)
 
-        main_frame = tk.Frame(self.root, bg=PANEL_COLOR)
-        main_frame.pack()
-
         self.canvas = tk.Canvas(
-            main_frame, width=CANVAS_W, height=CANVAS_H,
+            self.root, width=CANVAS_W, height=CANVAS_H,
             bg=BG_COLOR, highlightthickness=0
         )
-        self.canvas.pack(side="left")
-
-        self._sw1_var = tk.IntVar(value=0)
-        self._create_switch_panel(main_frame)
+        self.canvas.pack()
 
         self.track = Track.build_rounded_rect_with_siding()
         _bl4_seg, _bl4_t0, _bl4_t1 = self.track.block_ranges["BL4"]
@@ -95,45 +89,10 @@ class App:
         self._last_time = time.perf_counter()
         self._loop()
 
-    # ------------------------------------------------------------------
-    # Switch panel
-    # ------------------------------------------------------------------
-
-    def _create_switch_panel(self, parent: tk.Frame) -> None:
-        panel = tk.Frame(parent, bg=PANEL_COLOR, width=120, height=CANVAS_H)
-        panel.pack(side="left", fill="y")
-        panel.pack_propagate(False)
-
-        inner = tk.Frame(panel, bg=PANEL_COLOR)
-        inner.place(relx=0.5, rely=0.5, anchor="center")
-
-        tk.Label(inner, text="SW1/SW2", bg=PANEL_COLOR, fg="white",
-                 font=("Helvetica", 9, "bold")).pack(pady=(0, 4))
-        tk.Label(inner, text="MAIN", bg=PANEL_COLOR, fg="#aaaaaa",
-                 font=("Helvetica", 7)).pack()
-
-        tk.Scale(
-            inner, variable=self._sw1_var, from_=0, to=1,
-            orient="vertical", showvalue=False,
-            bg=PANEL_COLOR, fg="white", troughcolor="#333333",
-            activebackground="#FFA500", highlightthickness=0,
-            resolution=1, length=60,
-            command=lambda _v: self._on_switch(),
-        ).pack()
-
-        tk.Label(inner, text="SIDING", bg=PANEL_COLOR, fg="#aaaaaa",
-                 font=("Helvetica", 7)).pack()
-
-    def _on_switch(self) -> None:
-        """Called when the SW1 slider moves."""
-        route = "siding" if self._sw1_var.get() == 1 else "main"
-        self._set_route(route)
-
     def _set_sw1(self, route: str) -> None:
         """Set SW1 (diverging junction): controls which path trains take from seg0."""
         if route == self.train.route and not self._switch_transition_end:
             return
-        self._sw1_var.set(1 if route == "siding" else 0)
         self.train.route = route
         self.train2.route = route
         self._switch_transition_end = time.perf_counter() + 1.0
@@ -149,11 +108,6 @@ class App:
         self._sw2_transition_end = time.perf_counter() + 1.0
         self.canvas.itemconfig(self._switch_markers[1], fill="#FF0000")
         self._update_signal_switch_indicators()
-
-    def _set_route(self, route: str) -> None:
-        """Set both SW1 and SW2 together (used by manual panel)."""
-        self._set_sw1(route)
-        self._set_sw2(route)
 
     # ------------------------------------------------------------------
     # Track drawing
@@ -445,7 +399,7 @@ class App:
     # ------------------------------------------------------------------
 
     def _route_text(self) -> str:
-        return f"Route: {self.train.route.upper()}"
+        return "Route: BL2" if self.train.route == "main" else "Route: BL3"
 
 
 if __name__ == "__main__":
