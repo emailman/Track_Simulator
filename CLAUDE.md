@@ -58,12 +58,14 @@ SW1 and SW2 are controlled **independently and automatically** — there is no m
 |---|---|
 | Orange (T2) enters BL1 | SW1 → straight (BL2 route) |
 | Blue (T1) enters BL1 | SW1 → diverge (BL3 route) |
-| Orange reaches centre of BL2 | Stop 3 s, then SW2 → straight (held longer if blue is in BL4) |
-| Blue reaches centre of BL3 | Stop 3 s, then SW2 → diverge (held longer if orange is in BL4) |
+| Orange reaches centre of BL2 | Stop 3 s, then SW2 → straight; held until SW2 indicator is green (held longer if blue is in BL4) |
+| Blue reaches centre of BL3 | Stop 3 s, then SW2 → diverge; held until SW2 indicator is yellow (held longer if orange is in BL4) |
 | BL1 occupied when second train arrives | Trailing train held at BL1 entry; released when BL1 clears |
 | BL4 occupied when second train arrives | Trailing train held at BL4 entry; released when BL4 clears |
 
 **BL4 resume rule:** a train stopped at its timed stop (BL2 or BL3 centre) will not resume as long as the other train occupies BL4.
+
+**SW2 indicator rule:** after the timed stop and BL4 clear, the train calls `_set_sw2` once (guarded by `_train2_waiting_sw2_green` / `_train_waiting_sw2_yellow`) and remains stopped until `_sw2_state` matches the expected route **and** `_sw2_transition_end == 0`.
 
 ## Signals
 

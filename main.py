@@ -67,6 +67,8 @@ class App:
         self._bl3_center_t: float = (_bl3_t0 + _bl3_t1) / 2
         self._train_stop_until: float = 0.0
         self._train_bl3_stopped: bool = False
+        self._train2_waiting_sw2_green: bool = False
+        self._train_waiting_sw2_yellow: bool = False
         self._draw_track()
         self._draw_block_sections()
         self._draw_signals()
@@ -359,9 +361,10 @@ class App:
                 self.train2.t = min(self.train2.t, self._bl4_t0)
             self.train2.speed = 0
 
-        # Orange train: stop 3 s at center of BL2, then set SW2 straight
+        # Orange train: stop 3 s at center of BL2, then wait for SW2 green
         if block2 != "BL2":
             self._train2_bl2_stopped = False
+            self._train2_waiting_sw2_green = False
         elif (not self._train2_bl2_stopped
               and self.train2.segment is self._bl2_center_seg
               and self.train2.t >= self._bl2_center_t):
@@ -370,13 +373,20 @@ class App:
         if self._train2_stop_until:
             if now < self._train2_stop_until or train_in_bl4:
                 self.train2.speed = 0
-            else:
-                self._train2_stop_until = 0.0
+            elif not self._train2_waiting_sw2_green:
+                self._train2_waiting_sw2_green = True
                 self._set_sw2("main")
+                self.train2.speed = 0
+            elif self._sw2_state == "main" and not self._sw2_transition_end:
+                self._train2_stop_until = 0.0
+                self._train2_waiting_sw2_green = False
+            else:
+                self.train2.speed = 0
 
-        # Blue train: stop 3 s at center of BL3, then set SW2 diverge
+        # Blue train: stop 3 s at center of BL3, then wait for SW2 yellow
         if block != "BL3":
             self._train_bl3_stopped = False
+            self._train_waiting_sw2_yellow = False
         elif (not self._train_bl3_stopped
               and self.train.segment is self._bl3_center_seg
               and self.train.t >= self._bl3_center_t):
@@ -385,9 +395,15 @@ class App:
         if self._train_stop_until:
             if now < self._train_stop_until or train2_in_bl4:
                 self.train.speed = 0
-            else:
-                self._train_stop_until = 0.0
+            elif not self._train_waiting_sw2_yellow:
+                self._train_waiting_sw2_yellow = True
                 self._set_sw2("siding")
+                self.train.speed = 0
+            elif self._sw2_state == "siding" and not self._sw2_transition_end:
+                self._train_stop_until = 0.0
+                self._train_waiting_sw2_yellow = False
+            else:
+                self.train.speed = 0
         self.canvas.itemconfig(self._block_label,  text=f"T1 Block: {block}  Speed: {int(self.train.speed)}")
         self.canvas.itemconfig(self._block2_label, text=f"T2 Block: {block2}  Speed: {int(self.train2.speed)}")
 
